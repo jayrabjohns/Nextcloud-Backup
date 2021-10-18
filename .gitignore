@@ -1,5 +1,5 @@
 .vscode
 logs
-
+test_dest
+test_source
 backup_metadata
-*.tar.gz
