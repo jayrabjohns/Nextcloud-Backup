@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Backup solution based on https://kevq.uk/how-to-backup-nextcloud/
-# Argument passing based on https://tecadmin.net/pass-command-line-arguments-in-shell-script/
+# Argument passing based on https://www.redhat.com/sysadmin/arguments-options-bash-scripts
 
 currentDateTime=$(date +"%Y-%m-%d_%H-%M-%S")
 dataSourceDir=""    # /mnt/cloud/data/
@@ -17,21 +17,13 @@ printUsage()
     echo "  -v  increases verbosity"
 }
 
-# log()
-# {
-#     if [ "$verbose" = true ]; then
-#         echo "$1"
-#         echo "Verbose!"
-#     fi
-
-#     echo "$1" >> "$logsDir""$currentDateTime.log"
-# }
-
 runBackup()
 {
-    dataDir="$backupParentDir""data/"
-    databaseDir="$backupParentDir""database/"
-    oldDataDestinationDir="$backupParentDir""old/"
+    SECONDS=0
+    dataDir="${backupParentDir}data/"
+    databaseDir="${backupParentDir}database/"
+    oldDataDestinationDir="${backupParentDir}old/"
+    metadataFile="${backupParentDir}backup_metadata"
 
     # Creating directories if needed
     if [ ! -d "$dataDir" ]; then
@@ -44,47 +36,71 @@ runBackup()
         mkdir "$oldDataDestinationDir"
     fi
 
-    # Creating backup metadata file
-    echo "date: ${currentDateTime}" > "$backupParentDir""backup_metadata"
+    echo "Starting nextcloud backup..."
 
     # Compressing old backup, if data exists
+    echo ""
+    echo "--Compressing old backup...--"
     if [ -z "$(ls -A $dataDir)" ]; then
-        echo "$dataDir is empty, skipping compression of old backup";
+        echo "--Skipping compression of old backup because $dataDir is empty--";
     else
-        echo "--Compressing old backup...--"
-        tar -zcf "${oldDataDestinationDir}${currentDateTime}.tar.gz" "${dataDir}" "${databaseDir}" "${logsDir}"
+        start="$SECONDS"
+        oldDate=$(grep -oP  "(?<=^date: ).*$" "$metadataFile")
+        #echo "$oldDate"
+        tar -zcf "${oldDataDestinationDir}${oldDate}.tar.gz" "$dataDir" "${databaseDir}db_export_${oldDate}.tar.gz" "${logsDir}${oldDate}.log"
+
+        duration=$((SECONDS - start))
+        echo "--Old backup compressed and moved to $oldDataDestinationDir in $((duration / 60)) minutes and $((duration % 60)) seconds--"
     fi
 
+    # Creating new metadata file
+    echo "date: $currentDateTime" > "${backupParentDir}backup_metadata"
+
     # Backup data
+    echo ""
     echo "--Starting data backup...--"
+    start=$SECONDS
     nextcloud.occ maintenance:mode --on
-    rsync -Aavx "${dataSourceDir}" "${dataDir}"
+    rsync -Aavx "$dataSourceDir" "$dataDir"
     nextcloud.occ maintenance:mode --off
-    echo "--Data backup finished--"
+    duration=$((SECONDS - start))
+    echo "--Data backup finished in $((duration / 60)) minutes and $((duration % 60)) seconds--"
 
     # Export apps, database, config
+    echo ""
     echo "--Starting export of apps, database, and config...--" 
+    start=$SECONDS
     nextcloud.export -abc
-    echo "--Completed export of apps, database, and config--"
 
     # Compress export
+    echo ""
     echo "--Compressing export...--"
-    tar -zcf "${databaseDir}${currentDateTime}.tar.gz" /var/snap/nextcloud/common/backups/*
-    echo "--Export compressed to ${databaseDir}--"
+    tar -zcf "${databaseDir}db_export_${currentDateTime}.tar.gz" /var/snap/nextcloud/common/backups/*
+    duration=$((SECONDS - start))
+    echo "--Exported compressed apps, database, and config to $databaseDir in $((duration / 60)) minutes and $((duration % 60)) seconds--"
 
     # Remove uncompressed export
+    echo "--Removing uncompressed exports...--"
+    start=$SECONDS
     rm -rf /var/snap/nextcloud/common/backups/*
+    duration=$((SECONDS - start))
+    echo "--Finished removing uncompressed exports in $((duration / 60)) minutes and $((duration % 60)) seconds"
 
     # Remove old backups older than 14 days
-    echo "--Removing backups older than 14 days...--"
-    find "${oldDataDestinationDir}" -mtime +14 -type f -delete
-    echo "--Old backups removed--"
+    echo "--Removing backups, logs, & database exports older than 14 days...--"
+    start=$SECONDS
+    find "$oldDataDestinationDir" -mtime +14 -type f -delete
+    find "$databaseDir" -mtime +14 -type f -delete
+    find "$logsDir" -mtime +14 -type f -delete
+    duration=$((SECONDS - start))
+    echo "--Old backups, logs, & database exports removed in $((duration / 60)) minutes and $((duration % 60)) seconds--"
 
-    echo "--Nextcloud backup completed successfully.--"
+    duration=$SECONDS
+    echo "--Nextcloud backup completed successfully in $((duration / 60)) minutes and $((duration % 60)) seconds--"
 }
 
 
-######      Main      ######
+############################################      Main      ############################################
 
 # Check if user is sudo or root
 if [ "$(whoami)" != root ]; then
@@ -100,9 +116,9 @@ while getopts ":hvs:d:" option; do
             exit;;
         v) # Increases verbosity
             verbose=true;;
-        s) #Defines source directory
+        s) # Defines source directory
             dataSourceDir="$OPTARG";;
-        d) #Defines destination directory
+        d) # Defines destination directory
             backupParentDir="$OPTARG";;
         \?) # Invalid option
             echo "Error: Invalid option"
@@ -115,11 +131,11 @@ if [[ ! -d "$dataSourceDir" || ! "$dataSourceDir" == */ ]]; then
     echo "Provide a valid source directory. (Be sure to include a slash at the end)"
     exit;
 elif [[ "$backupParentDir" = "" || ! "$backupParentDir" == */ ]]; then
-    echo "Provide a destination directory. (Be sure to include a slash at the end)"
+    echo "Provide a valid destination directory. (Be sure to include a slash at the end)"
     exit;
 fi
 
-logsDir=$backupParentDir"logs/"
+logsDir="${backupParentDir}logs/"
 
 # Creating necessary directories if needed
 if [ ! -d "$backupParentDir" ]; then
@@ -131,7 +147,7 @@ fi
 
 # Printing to log file and or stdout
 if [ "$verbose" = true ]; then
-    runBackup | tee "$logsDir""$currentDateTime.log"
+    runBackup | tee "${logsDir}${currentDateTime}.log"
 else
-    runBackup > "$logsDir""$currentDateTime.log"
+    runBackup > "${logsDir}${currentDateTime}.log"
 fi
