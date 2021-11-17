@@ -8,12 +8,15 @@ SrcDir="./test_source/"
 mkdir -p -- "$DestDir"
 mkdir -p -- "$SrcDir"
 
+echo ""
 echo "-----------------------"
 echo "Starting backup test..."
 echo "-----------------------"
+echo ""
 
-/bin/bash ./nextcloud_backup.sh -d "$DestDir" -s "$SrcDir" -v
+/bin/bash ./nextcloud_backup.sh -d "$DestDir" -s "$SrcDir" -v -k -r -1
 
+echo ""
 echo "---------------------"
 echo "Finished backup test."
 echo "---------------------"

@@ -23,9 +23,7 @@ PrintUsage()
     echo "Parameters:"
     echo "  -s  <file path> specifies nextcloud data source directory"
     echo "  -d  <file path> specifies destination directory for backup"
-    echo "  -s  directory for data to backup"
-    echo "  -d  directory for backup storage"
-    echo "  -v  increases verbosity"
+    echo "  -r  <days>      remove old backups & exports older than a specified number of days (default is 14, -1 to skip removal)"
     echo ""
 }
 
@@ -52,18 +50,18 @@ RunBackup()
     echo "Starting nextcloud backup..."
 
     if [ "$KeepBackups" = true ]; then
-    # Compressing old backup, if data exists
-    echo ""
-    echo "--Compressing old backup...--"
-    if [ -z "$(ls -A $dataDir)" ]; then
-        echo "--Skipping compression of old backup because $dataDir is empty--";
-    else
-        start="$SECONDS"
-        oldDate=$(grep -oP  "(?<=^date: ).*$" "$metadataFile")
-        #echo "$oldDate"
+        # Compressing old backup, if data exists
+        echo ""
+        echo "--Compressing old backup...--"
+        if [ -z "$(ls -A $dataDir)" ]; then
+            echo "--Skipping compression of old backup because $dataDir is empty--";
+        else
+            start="$SECONDS"
+            oldDate=$(grep -oP  "(?<=^date: ).*$" "$metadataFile")
+            #echo "$oldDate"
             tar -zcf "${oldBackupsDir}${oldDate}.tar.gz" "$dataDir" "${databaseDir}db_export_${oldDate}.tar.gz" "${LogsDir}${oldDate}.log"
 
-        duration=$((SECONDS - start))
+            duration=$((SECONDS - start))
             echo "--Old backup compressed and moved to $oldBackupsDir in $((duration / 60)) minutes and $((duration % 60)) seconds--"
         fi
     fi
@@ -83,7 +81,7 @@ RunBackup()
 
     # Export apps, database, config
     echo ""
-    echo "--Starting export of apps, database, and config...--" 
+    echo "--Starting export of apps, database, and config...--"
     start=$SECONDS
     nextcloud.export -abc
 
@@ -103,12 +101,18 @@ RunBackup()
     echo "--Finished removing uncompressed exports in $((duration / 60)) minutes and $((duration % 60)) seconds"
 
     echo ""
-    start=$SECONDS
-    find "$oldDataDestinationDir" -mtime +14 -type f -delete
-    find "$databaseDir" -mtime +14 -type f -delete
-    find "$logsDir" -mtime +14 -type f -delete
-    duration=$((SECONDS - start))
-    echo "--Old backups, logs, & database exports removed in $((duration / 60)) minutes and $((duration % 60)) seconds--"
+    if [ "$RemoveBackupsOlderThan" -ne "-1" ]; then
+        # Remove old backups older than RemoveBackupsOlderThan days
+        echo "--Removing backups, logs, & database exports older than $RemoveBackupsOlderThan days...--"
+        start=$SECONDS
+        eval "find $oldBackupsDir -mtime +$RemoveBackupsOlderThan -type f -delete"
+        eval "find $databaseDir -mtime +$RemoveBackupsOlderThan -type f -delete"
+        eval "find $LogsDir -mtime +$RemoveBackupsOlderThan -type f -delete"
+        duration=$((SECONDS - start))
+        echo "--Old backups, logs, & database exports removed in $((duration / 60)) minutes and $((duration % 60)) seconds--"
+    else
+        echo "--Skipped removing old backups--"
+    fi
 
     duration=$SECONDS
     echo ""
