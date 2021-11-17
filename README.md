@@ -3,11 +3,11 @@
 Incrementally backs up data stored using a Nextcloud instance.
 
 Optionally allows you to compress & keep old backups.
-Additionally to this can delete old backups a given number of days old
+Additionally, it can delete backups after they become a given number of days old.
 
 Includes Nextcloud data, apps, databases, and config.
 
-Compatible with Nextcloud's server side encryption.
+Compatible with Nextcloud's server side encryption settings.
 
 Currently does not include functionality for restoring a backup.
 
