@@ -1,11 +1,11 @@
-# Backup script for Nextcloud
+# Backup script for a Nextcloud server
 
-Incrementally backs up data stored using a Nextcloud instance.
+Incrementally backs up data stored.
 
 Optionally allows you to compress & keep old backups.
 Additionally, it can delete backups after they become a given number of days old.
 
-Includes Nextcloud data, apps, databases, and config.
+Includes data, apps, database, and config.
 
 Compatible with Nextcloud's server side encryption settings.
 
