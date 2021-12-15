@@ -122,12 +122,6 @@ RunBackup()
 
 ############################################      Main      ############################################
 
-# Check if user is sudo or root
-if [ "$(whoami)" != root ]; then
-    echo "You need to be root or use sudo to run this."
-    exit 1;
-fi
-
 # Parameter selection
 while getopts ":hvks:d:r:" option; do
     case $option in
@@ -152,6 +146,12 @@ while getopts ":hvks:d:r:" option; do
             exit 1;;
     esac
 done
+
+# Check if user is sudo or root
+if [ "$(whoami)" != root ]; then
+    echo "Nextcloud backup requires you to be root or using sudo."
+    exit 1;
+fi
 
 # Parameter validation
 if [[ ! -d "$DataSourceDir" || ! "$DataSourceDir" == */ ]]; then
