@@ -154,11 +154,15 @@ if [ "$(whoami)" != root ]; then
 fi
 
 # Parameter validation
+intRegex='^[+-]?[0-9]+$';
 if [[ ! -d "$DataSourceDir" || ! "$DataSourceDir" == */ ]]; then
-    echo "Provide a valid source directory. (Be sure to include a slash at the end)"
+    echo "Error: Provide a valid source directory. (Be sure to include a slash at the end)"
     exit 1;
 elif [[ "$BackupParentDir" = "" || ! "$BackupParentDir" == */ ]]; then
-    echo "Provide a valid destination directory. (Be sure to include a slash at the end)"
+    echo "Error: Provide a valid destination directory. (Be sure to include a slash at the end)"
+    exit 1;
+elif [[ ! $RemoveBackupsOlderThan =~ $intRegex ]]; then
+    echo "Error: Value for -r is not a number"
     exit 1;
 fi
 
